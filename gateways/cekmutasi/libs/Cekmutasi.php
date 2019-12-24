@@ -18,12 +18,12 @@ class Cekmutasi
 
 	function __construct($config = array())
 	{
-		if (isset($config['api_key'])) {
-			$this->api_key = $config['api_key'];
+		if (isset($config['cm_api_key'])) {
+			$this->api_key = $config['cm_api_key'];
 		}
 
-		if (isset($config['api_signature'])) {
-			$this->api_signature = $config['api_signature'];
+		if (isset($config['cm_api_signature'])) {
+			$this->api_signature = $config['cm_api_signature'];
 		}
 
 		$this->base_config = $config;

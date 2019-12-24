@@ -36,24 +36,23 @@ if (isset($gatewayParams['cm_enable_log']))
 }
 
 // Require Configs of Cekmutasi
-require(dirname(__DIR__) . DIRECTORY_SEPARATOR . $gatewayModuleName . DIRECTORY_SEPARATOR . 'cekmutasi-config.php');
+require(dirname(__DIR__) . DIRECTORY_SEPARATOR . $gatewayModuleName . DIRECTORY_SEPARATOR . 'config.php');
 
 if (!isset($CekmutasiConfigs)) {
 	exit("No cekmutasi configs retrieved");
 }
 
 // Include Library Curl and Cekmutasi
-include_once(dirname(__DIR__) . DIRECTORY_SEPARATOR . $gatewayModuleName . DIRECTORY_SEPARATOR . 'libs' . DIRECTORY_SEPARATOR . 'Lib_imzerscurl.php');
-include_once(dirname(__DIR__) . DIRECTORY_SEPARATOR . $gatewayModuleName . DIRECTORY_SEPARATOR . 'libs' . DIRECTORY_SEPARATOR . 'Lib_cekmutasi.php');
+include_once(dirname(__DIR__) . DIRECTORY_SEPARATOR . $gatewayModuleName . DIRECTORY_SEPARATOR . 'libs' . DIRECTORY_SEPARATOR . 'Curl.php');
+include_once(dirname(__DIR__) . DIRECTORY_SEPARATOR . $gatewayModuleName . DIRECTORY_SEPARATOR . 'libs' . DIRECTORY_SEPARATOR . 'Cekmutasi.php');
 // Get Instance Initialized
 
-$curl = new Lib_imzerscurl();
+$curl = new Cekmutasi\Libs\Curl();
 
-//------ Build Config For Lib_cekmutasi
 $CekmutasiConfigs['cm_api_key'] = $gatewayParams['cm_api_key'];
 $CekmutasiConfigs['cm_api_signature'] = $gatewayParams['cm_api_signature'];
 
-$cekmutasi = new Lib_cekmutasi($CekmutasiConfigs);
+$cekmutasi = new Cekmutasi\Libs\Cekmutasi($CekmutasiConfigs);
 
 // GET headers
 if (isset($cekmutasi->cekmutasi_headers))

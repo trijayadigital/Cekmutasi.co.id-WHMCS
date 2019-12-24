@@ -6,6 +6,7 @@ class Admin
 {
 	public static $notify = false;
 	public static $CekmutasiConfigs;
+	public static $clientIP = null;
 
 	public function __construct($configs = array())
 	{
@@ -15,6 +16,7 @@ class Admin
 		$this->hostname = (isset($this->hostname) ? $this->hostname : $this->get_hostname());
 		$this->set_url('notify', "{$this->protocol}{$this->hostname}modules/gateways/callback/cekmutasi.php?page=notify");
 		self::$CekmutasiConfigs = $configs;
+		self::$clientIP = !preg_match('/^(::1|127\.0\.0\.1)$/i', $_SERVER['SERVER_ADDR']) ? $_SERVER['SERVER_ADDR'] : self::clientIP();
 	}
 
 	public static function getConstantConfigs($vars)
@@ -104,6 +106,46 @@ class Admin
 				self::$notify = $url;
 				break;
 		}
+	}
+	
+	public static function clientIP()
+	{
+	    if( !empty($_SERVER['HTTP_X_FORWARDED_FOR']) )
+        {
+            $ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
+    		$ip = str_replace(' ', '', $ip);
+    		$ip = explode(',', $ip);
+            $ip = $ip[0];
+        }
+        elseif( !empty($_SERVER['HTTP_CLIENT_IP']) )
+        {
+            $ip = $_SERVER['HTTP_CLIENT_IP'];
+    		$ip = str_replace(' ', '', $ip);
+    		$ip = explode(',', $ip);
+            $ip = $ip[0];
+        }
+        elseif( !empty($_SERVER['REMOTE_ADDR']) )
+        {
+            $ip = $_SERVER['REMOTE_ADDR'];
+        }
+        else
+        {
+            $ip = '';
+        }
+    
+        return (filter_var($ip, FILTER_VALIDATE_IP) !== false) ? $ip : null;
+	}
+	
+	public static function timezoneDropdown()
+	{
+	    $timezone = [];
+	    
+	    foreach( timezone_identifiers_list() as $tmz )
+	    {
+	        $timezone[$tmz] = $tmz;
+	    }
+	    
+	    return $timezone;
 	}
 }
 
