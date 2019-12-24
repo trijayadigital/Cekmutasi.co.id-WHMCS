@@ -1,6 +1,8 @@
 <?php
 
-class Lib_adminconstant
+namespace Cekmutasi\Libs;
+
+class Admin
 {
 	public static $notify = false;
 	public static $CekmutasiConfigs;

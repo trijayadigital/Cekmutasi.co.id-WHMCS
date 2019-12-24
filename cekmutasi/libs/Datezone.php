@@ -1,6 +1,10 @@
 <?php
 
-class Lib_datezone
+namespace Cekmutasi\Libs;
+
+use DateTime, DateInterval, DateTimeZone;
+
+class Datezone
 {
 	public $DateObject = NULL;
 

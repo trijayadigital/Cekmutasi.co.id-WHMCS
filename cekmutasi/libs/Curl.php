@@ -1,10 +1,14 @@
 <?php
 
+namespace Cekmutasi\Libs;
+
 if (!defined('WHMCS')) {
 	exit('No direct script access allowed');
 }
 
-class Lib_imzerscurl
+use DateTime, DateInterval, DateTimeZone;
+
+class Curl
 {
 	public $instance = NULL;
 	public $endpoint;

@@ -21,11 +21,11 @@ if( !defined("WHMCS") ) {
     die("This file cannot be accessed directly");
 }
 
-$configfile = dirname(__FILE__) . DIRECTORY_SEPARATOR . 'cekmutasi' . DIRECTORY_SEPARATOR . 'cekmutasi-config.php';
+$configfile = dirname(__FILE__) . DIRECTORY_SEPARATOR . 'cekmutasi' . DIRECTORY_SEPARATOR . 'config.php';
 
 require_once $configfile;
 
-if (!isset($configs)) {
+if (!isset($CekmutasiConfigs)) {
 	exit("There is no configs of included config file.");
 }
 
@@ -49,7 +49,7 @@ class cekmutasi_unique
 	
 	function cekmutasi_get_new_unique_number()
 	{
-		$int_random = mt_rand($this->settings['unique_starting'], $this->settings['unique_stopping']);
+		$int_random = mt_rand($this->settings['cm_unique_starting'], $this->settings['cm_unique_stopping']);
 
 		return (int) $int_random;
 	}
@@ -78,14 +78,14 @@ class cekmutasi_unique
 			return false;
 		}
 
-		$row_data = mysqli_fetch_assoc($sql_query);
+		$row_data = $sql_query->fetch(\PDO::FETCH_ASSOC);
 		$rows = isset($row_data['value']) ? $row_data['value'] : 0;
 		return $rows;
 	}
 
 	function cekmutasi_calculate_unique($sql_table, $timezone)
 	{
-		if ( strtolower($this->settings['unique_status']) != 'on' )
+		if ( strtolower($this->settings['cm_unique_status']) != 'on' )
 		{
 			return;
 		}
@@ -95,9 +95,9 @@ class cekmutasi_unique
 		$Datezone = new DateTime();
 		$Datezone->setTimezone(new DateTimeZone($timezone));
 		
-		$unique_params['unique_amount'] = $this->cekmutasi_generate_new_unique($this->settings['unique_range_unit'], $this->settings['unique_range_amount'], $sql_table, $timezone);
+		$unique_params['unique_amount'] = $this->cekmutasi_generate_new_unique($this->settings['cm_unique_range_unit'], $this->settings['cm_unique_range_amount'], $sql_table, $timezone);
 
-		if ($this->settings['unique_type'] == 'decrease')
+		if ($this->settings['cm_unique_type'] == 'decrease')
 		{
 			$unique_params['unique_amount'] = (int) -$unique_params['unique_amount'];
 		}
@@ -108,9 +108,9 @@ class cekmutasi_unique
 			'trans_user'				=> (isset($this->settings['clientdetails']['userid']) ? $this->settings['clientdetails']['userid'] : 0),
 			'trans_invoiceid'			=> $this->settings['invoiceid'],
 			'unique_payment_gateway'	=> $this->settings['paymentmethod'],
-			'unique_unit_name'			=> $this->settings['unique_range_unit'],
-			'unique_unit_amount'		=> $this->settings['unique_range_amount'],
-			'unique_label'				=> $this->settings['unique_label'],
+			'unique_unit_name'			=> $this->settings['cm_unique_range_unit'],
+			'unique_unit_amount'		=> $this->settings['cm_unique_range_amount'],
+			'unique_label'				=> $this->settings['cm_unique_label'],
 			'unique_amount'				=> $unique_params['unique_amount'],
 			'unique_date'				=> $Datezone->format('Y-m-d'),
 			'unique_datetime'			=> $Datezone->format('Y-m-d H:i:s'),
@@ -131,9 +131,9 @@ class cekmutasi_unique
 		$int_amount = (int) $int_amount;
 
 		// Include libraries
-		include_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'cekmutasi' . DIRECTORY_SEPARATOR . 'libs' . DIRECTORY_SEPARATOR . 'Lib_datezone.php';
+		include_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'cekmutasi' . DIRECTORY_SEPARATOR . 'libs' . DIRECTORY_SEPARATOR . 'Datezone.php';
 
-		$Lib_datezone = new Lib_datezone();
+		$Lib_datezone = new Cekmutasi\Libs\Datezone();
 		$date_stopping = new DateTime();
 		$date_stopping->setTimezone(new DateTimeZone($timezone));
 
@@ -216,13 +216,13 @@ function cekmutasi_MetaData()
 
 //------------------------
 // Include Cekmutasi Admin Lib
-include_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'cekmutasi' . DIRECTORY_SEPARATOR . 'libs' . DIRECTORY_SEPARATOR . 'Lib_adminconstant.php';
+include_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'cekmutasi' . DIRECTORY_SEPARATOR . 'libs' . DIRECTORY_SEPARATOR . 'Admin.php';
 
 if (!file_exists($configfile)) {
 	Exit("Required configs file does not exists.");
 }
 
-$CekmutasiAdmin = new Lib_adminconstant($CekmutasiConfigs);
+$CekmutasiAdmin = new Cekmutasi\Libs\Admin($CekmutasiConfigs);
 
 /**
  * Define gateway configuration options.
@@ -247,160 +247,117 @@ $CekmutasiAdmin = new Lib_adminconstant($CekmutasiConfigs);
 function cekmutasi_config()
 {
     $configs = array(
-        // the friendly display name for a payment gateway should be
-        // defined here for backwards compatibility
+
         'FriendlyName' => array(
             'Type' => 'System',
-            'Value' => 'Cekmutasi WHMCS',
-			'Description' => 'Sistem Validasi Pembayaran Bank Otomatis dan Pengelolaan Rekening Terintegrasi',
+            'Value' => 'Cekmutasi',
+			'Description' => 'Sistem Validasi Pembayaran Otomatis dan Pengelolaan Rekening Terintegrasi.',
         ),
-		'Pembatas-Description-Payment-Gateway' => array(
-			'FriendlyName' => '',
-			'Type' => 'hidden',
-			'Size' => '72',
-            'Default' => '',
-			'Description' => '<img src="https://cekmutasi.co.id/logo-dark.png" align="left" style="padding-right:12px;" /> Sistem Validasi Pembayaran Bank Otomatis dan Pengelolaan Rekening Terintegrasi',
-		),
-		'Description-Payment-Gateway' => array(
-			'FriendlyName' => '<span style="color:red;font-weight:bold;">Description<span>',
+
+		'cm_description' => array(
+			'FriendlyName' => 'Deskripsi',
 			'Type' => 'textarea',
 			'Rows' => '8',
             'Cols' => '72',
-			'Default' => 'Sistem Validasi Pembayaran Bank Otomatis dan Pengelolaan Rekening Terintegrasi',
-			'Description' => '',
+			'Default' => 'Silahkan lakukan pembayaran ke rekening berikut. Pembayaran Anda akan divalidasi otomatis dalam waktu 5-15 menit.
+			
+Bank BCA 123456789 a/n Penerima
+Bank BRI 123456789 a/n Penerima',
+			'Description' => 'Isi deskripsi dengan informasi rekening tujuan transfer yang telah terdaftar di Cekmutasi.co.id',
 		),
-        // a text field type allows for single line text input
-		# Development
-		//-------------
-		'Pembatas-Sandbox' => array(
-			"FriendlyName" => "(*)", 
-			"Type" => 'hidden',
-			"Size" => "64",
-			"Default" => '',
-			"Description" => '<span style="color:green;font-weight:bold;">Parameter Development</span><br/>Dapatkan API Key dan Signature melalui : <a href="https://cekmutasi.co.id/app/integration" target="_blank">https://cekmutasi.co.id/app/integration</a>',
-		),
-		//-------------
-        'cekmutasi_api_key_dev' => array(
-            'FriendlyName' => '<span style="color:red;font-weight:bold;">Development: Api Key</span>',
+
+		'cm_api_key' => array(
+            'FriendlyName' => 'API Key',
             'Type' => 'text',
             'Size' => '25',
             'Default' => '',
-            'Description' => 'Masukkan API Key Anda',
+            'Description' => '<br/>Dapatkan API Key di <a href="https://cekmutasi.co.id/app/integration" target="_new" style="text-decoration:underline">https://cekmutasi.co.id/app/integration</a>',
         ),
-		'cekmutasi_api_secret_dev' => array(
-			'FriendlyName' => '<span style="color:red;font-weight:bold;">Development: API Signature</span>',
+
+		'cm_api_signature' => array(
+			'FriendlyName' => 'API Signature',
 			'Type' => 'text',
 			'Size' => '25',
 			'Default' => '',
-			'Description' => 'Masukkan API Signature Anda',
+			'Description' => '<br/>Dapatkan API Signature di <a href="https://cekmutasi.co.id/app/integration" target="_new" style="text-decoration:underline">https://cekmutasi.co.id/app/integration</a>',
 		),
-		//-------------
-		'Pembatas-Live' => array(
-			"FriendlyName" => "(*)", 
-			"Type" => 'hidden',
-			"Size" => "64",
-			"Default" => '',
-			"Description" => '<span style="color:red;font-weight:bold;">Parameter Production</span><br/>Dapatkan API Key dan Signature melalui : <a href="https://cekmutasi.co.id/app/integration" target="_blank">https://cekmutasi.co.id/app/integration</a>',
-		),
-		//-------------
-		# Live
-		'cekmutasi_api_key_live' => array(
-            'FriendlyName' => '<span style="color:red;font-weight:bold;">(*)</span>Production: API Key',
-            'Type' => 'text',
-            'Size' => '25',
-            'Default' => '',
-            'Description' => 'Masukkan API Key Anda',
-        ),
-		'cekmutasi_api_secret_live' => array(
-			'FriendlyName' => '<span style="color:red;font-weight:bold;">(*)</span>Production: API Signature',
-			'Type' => 'text',
-			'Size' => '25',
-			'Default' => '',
-			'Description' => 'Masukkan API Signature Anda',
-		),
-		//-------------
-		'Pembatas-Global-Params' => array(
-			"FriendlyName" => "", 
-			"Type" => 'hidden',
-			"Size" => "64",
-			"Default" => '',
-			"Description" => '<span style="color:blue;font-weight:bold;">Global Params</span>',
-		),
-		//-------------
-		# GLOBAL
-		// the dropdown field type renders a select menu of options (LOGGER)
-        'Log-Enabled' => array(
-            'FriendlyName' => "<span style='font-weight:bold;'>Aktifkan log transaksi?</span>", 
-			'Type' => "yesno",
-			'Description' => "Centang untuk menampilkan log", 
-        ),
-        // the dropdown field type renders a select menu of options
-        'Environment' => array(
-            'FriendlyName' => '<span style="font-weight:bold;">Mode Environment</span>',
+
+		'cm_timezone' => array(
+			'FriendlyName' => 'Zona Waktu',
             'Type' => 'dropdown',
-            'Options' => array(
-                'sandbox' => 'Development',
-                'live' => 'Production',
-            ),
-            'Description' => 'Pilih mode',
-        ),
-		//-------------
-		// Unique Number
-		"unique_status" => array(
-			'FriendlyName' => "<span style='font-weight:bold;'>Aktifkan Nominal Unik?</span>", 
-			'Type' => "yesno",
-			'Description' => "Centang, untuk mengaktifkan fitur penambahan 3 angka unik di setiap akhir pesanan / order. Sebagai pembeda dari order satu dengan yang lainnya.", 
+            'Options' => Cekmutasi\Libs\Admin::timezoneDropdown(),
+            'Description' => '<br/>Zona waktu sistem. Akan berpengaruh dengan rentang tanggal data yang diambil. Harap sesuaikan dengan zona waktu di akun cekmutasi. Lihat di <a href="https://cekmutasi.co.id/app/setting" target="_new" style="text-decoration:underline">https://cekmutasi.co.id/app/setting</a>',
+            'Default'	=> date_default_timezone_get()
 		),
-		'unique_label' => array(
-			'FriendlyName'	=> '<span style="font-weight:bold;">Label Kode Unik<span>',
+
+        'cm_enable_log' => array(
+            'FriendlyName' => "Gunakan Logger pada Log Transaksi? (Tagihan &amp; Log Gateway)", 
+			'Type' => "yesno",
+			'Description' => "Centang untuk mengaktifkan Logging", 
+        ),
+
+		'cm_unique_status' => array(
+			'FriendlyName' => "Aktifkan Nominal Unik?",
+			'Type' => "yesno",
+			'Default' => 'on',
+			'Description' => "Centang untuk mengaktifkan fitur penambahan 3 angka unik di setiap akhir pesanan / order. Sebagai pembeda dari order satu dengan yang lainnya.",
+		),
+
+		'cm_unique_label' => array(
+			'FriendlyName'	=> 'Label Nominal Unik',
 			'Type'			=> 'text',
 			'Size'			=> '22',
 			'Default'		=> 'Kode Unik',
-			'Description'	=> 'Label yang akan muncul di form checkout',
+			'Description'	=> '<br/>Label yang akan muncul di form checkout',
 		),
-		'unique_starting' => array(
-			'FriendlyName'	=> '<span style="font-weight:bold;">Batas Awal Angka Unik</span>',
+
+		'cm_unique_starting' => array(
+			'FriendlyName'	=> 'Batas Awal Angka Unik',
 			'Type'			=> 'text',
 			'Size'			=> '22',
-			'Default'		=> '10',
-			'Description'	=> 'Masukan batas awal angka unik',
+			'Default'		=> '1',
+			'Description'	=> '<br/>Masukan batas awal angka unik',
 		),
-		'unique_stopping' => array(
-			'FriendlyName'	=> '<span style="font-weight:bold;">Batas Akhir Angka Unik</span>',
+
+		'cm_unique_stopping' => array(
+			'FriendlyName'	=> 'Batas Akhir Angka Unik',
 			'Type'			=> 'text',
 			'Size'			=> '22',
 			'Default'		=> '999',
-			'Description'	=> 'Masukan batas akhir angka unik',
+			'Description'	=> '<br/>Masukan batas akhir angka unik',
 		),
-		'unique_type' => array(
-			'FriendlyName' => '<span style="font-weight:bold;">Tipe Kalkulasi</span>',
+
+		'cm_unique_type' => array(
+			'FriendlyName' => 'Tipe Kalkulasi',
             'Type' => 'dropdown',
             'Options' => array(
-                'increase'      => 'Tambahkan',
-                'decrease'      => 'Kurangi',
+                'increase'      => 'Plus (+)',
+                'decrease'      => 'Minus (-)',
             ),
-            'Description' => '<br/>Increase = Menambah angka unik ke total harga<br/>Decrease = Mengurangi total harga dengan angka unik',
+            'Description' => '<br/>Plus (+) = Menambah angka unik ke total harga<br/>Minus (-) = Mengurangi total harga dengan angka unik',
 		),
-		'unique_range_unit' => array(
-			'FriendlyName' => '<span style="font-weight:bold;">Satuan unit masa aktif nominal unik</span>',
+
+		'cm_unique_range_unit' => array(
+			'FriendlyName' => 'Satuan Masa Aktif Angka Unik',
             'Type' => 'dropdown',
             'Options' => array(
                 'day'			=> 'Hari',
 				'hour'			=> 'Jam',
 				'minute'		=> 'Menit',
             ),
-            'Description' => '<br/>Batas perhitungan nomor unik, default menggunakan satuan hari',
+            'Description' => '<br/>Batas masa aktif perhitungan angka unik, default menggunakan satuan Hari',
 		),
-		'unique_range_amount' => array(
-			'FriendlyName'	=> '<span style="font-weight:bold;">Masa berlaku nominal unik sesuai satuan unit diatas</span>',
+
+		'cm_unique_range_amount' => array(
+			'FriendlyName'	=> 'Nilai Satuan Masa Aktif Angka Unik',
 			'Type'			=> 'text',
 			'Size'			=> '22',
 			'Default'		=> '1',
-			'Description'	=> '<br/>Jumlah berapa kali didalam unit untuk perhitungan nomor unik, jika 1 hari berarti nominal unik valid selama 1 hari penuh',
+			'Description'	=> '<br/>Jika 1 Hari berarti nominal unik akan berlaku selama 1 Hari (24 jam)',
 		),
 
-		'change_day' => array(
-			'FriendlyName' => '<span style="font-weight:bold;">Perubahan status di hari ke?</span>',
+		'cm_change_day' => array(
+			'FriendlyName' => 'Perubahan Status Di Hari Ke?',
             'Type' => 'dropdown',
             'Options' => array(
                 '1'				=> 'H+1',
@@ -411,38 +368,43 @@ function cekmutasi_config()
                 '6'      		=> 'H+6',
                 '7'      		=> 'H+7',
             ),
+            'Default'   => '1',
             'Description' => '<br/>Setelah konsumen checkout dan belum bayar, pilih hari ke berapa status order berubah otomatis dari ON-HOLD ke PENDING',
 		),
 
-		"PaymentCheck-Enabled" => array(
-			'FriendlyName' => "<span style='font-weight:bold;'>Aktifkan verifikasi IPN</span>", 
+		'cm_enable_payment_check' => array(
+			'FriendlyName' => "Aktifkan Pemeriksaan Pembayaran Saat Notifikasi dan Pengalihan", 
 			'Type' => "yesno",
-			'Description' => "Centang untuk mengaktifkan dan cek verifikasi IPN yang masuk",
+			'Description' => "Centang untuk mengaktifkan pemeriksaan pembayaran (disarankan untuk mode Production/transaksi riil)", 
 		),
-		//----------------------------------------------------------------------------
+
+		'cm_local_api_admin_username' => array(
+			'FriendlyName'	=> 'Nama Pengguna Admin WHMCS untuk menggunakan WHMCS::localAPI()',
+			'Type'			=> 'text',
+			'Size'			=> '22',
+			'Default'		=> '',
+			'Description'	=> '<br/>Masukkan username Admin WHMCS untuk menggunakan WHMCS::localAPI().',
+		),
+
+		'cm_notify_url'	=> array(
+			"FriendlyName"	=> "Masukkan URL IPN/Callback IPN ini ke dalam rekening yang terdaftar di Cekmutasi.co.id", 
+			"Type" 			=> 'hidden',
+			"Size"			=> "64",
+			"Value"			=> Cekmutasi\Libs\Admin::$notify,
+			"Default"		=> Cekmutasi\Libs\Admin::$notify,
+			"Description"	=> Cekmutasi\Libs\Admin::$notify,
+		),
+
+		'cm_server_ip'	=> array(
+			"FriendlyName"	=> 'Masukkan IP ini ke dalam kolom Whitelist IP di <a href="https://cekmutasi.co.id/app/integration" target="_new" style="text-decoration:underline">https://cekmutasi.co.id/app/integration</a>', 
+			"Type" 			=> 'hidden',
+			"Size"			=> "64",
+			"Value"			=> Cekmutasi\Libs\Admin::$clientIP,
+			"Default"		=> Cekmutasi\Libs\Admin::$clientIP,
+			"Description"	=> Cekmutasi\Libs\Admin::$clientIP,
+		),
+
     );
-
-	//------------------------------------------------------------------------------------
-	// LOCAL API ADMIN USERNAME
-	//------------------------------------------------------------------------------------
-
-	$configs["Local-Api-Admin-Username"] = array(
-		'FriendlyName'	=> '<span style="color:red;font-weight:bold;">(*) WHMCS Admin Username for using WHMCS::localAPI().</span>',
-		'Type'			=> 'text',
-		'Size'			=> '22',
-		'Default'		=> '',
-		'Description'	=> '<br/>Masukkan username Admin WHMCS untuk menggunakan WHMCS::localAPI().',
-	);
-
-	//------------------------------------------------------
-	$configs['URL-Notify'] = array(
-		"FriendlyName"	=> "Masukkan URL IPN/Callback IPN ini ke dalam rekening yang terdaftar di Cekmutasi.co.id", 
-		"Type" 			=> 'hidden',
-		"Size"			=> "64",
-		"Value"			=> Lib_adminconstant::$notify,
-		"Default"		=> Lib_adminconstant::$notify,
-		"Description"	=> Lib_adminconstant::$notify,
-	);
 
 	//====================================================
 	// Query to create table
@@ -537,17 +499,17 @@ function cekmutasi_link($params)
 		return false;
 	}
 
-	$unique_data = mysqli_fetch_assoc($sql_result);
+	$unique_data = $sql_result->fetch(\PDO::FETCH_ASSOC);
 
-	if (!isset($unique_data['seq']))
+	if ( !isset($unique_data['seq']) )
 	{
-		$insert_unique_seq = cekmutasi_cekmutasi_calculate_unique($params);
+		$insert_unique_seq = cm_calculate_unique($params);
 
 		if ( intval($insert_unique_seq) > 0 )
 		{
 			$sql_where = array("seq" => $insert_unique_seq);
 			$sql_result = select_query(CEKMUTASI_TABLE_TRANSACTION_UNIQUE, '*', $sql_where);
-			$unique_data = mysqli_fetch_assoc($sql_result);
+			$unique_data = $sql_result->fetch(\PDO::FETCH_ASSOC);
 		}
 		else
 		{
@@ -560,19 +522,19 @@ function cekmutasi_link($params)
 			$unique_data_as_items = array(
 				'invoiceid'				=> $params['invoiceid'],
 				'userid'				=> $params['clientdetails']['userid'],
-				'type'					=> (isset($params['unique_label']) ? $params['unique_label'] : 'Fee'),
+				'type'					=> (isset($params['cm_unique_label']) ? $params['cm_unique_label'] : 'Fee'),
 				'relid'					=> '0', // relid?
 				'description'			=> (isset($params['description']) ? $params['description'] : '-'),
 				'amount'				=> $unique_data['unique_amount'],
 				'taxed'					=> '0',
-				'duedate'				=> (isset($params['dueDate']) ? $params['dueDate'] : date('Y-m-d')),
+				'duedate'				=> isset($params['dueDate']) ? $params['dueDate'] : date('Y-m-d', (time()+(24*60*60))),
 				'paymentmethod'			=> $params['paymentmethod'],
-				'notes'					=> (isset($params['unique_type']) ? $params['unique_type'] : 'gateway_unique'),
+				'notes'					=> (isset($params['cm_unique_type']) ? $params['cm_unique_type'] : 'gateway_unique'),
 			);
 
-			$unique_data_as_items['description'] .= " " . (isset($params['unique_label']) ? $params['unique_label'] : 'Fee');
+			$unique_data_as_items['description'] .= " " . (isset($params['cm_unique_label']) ? $params['cm_unique_label'] : 'Fee');
 
-			if (strtolower($params['unique_label']) === 'decrease')
+			if (strtolower($params['cm_unique_type']) == 'decrease')
 			{
 				$unique_data_as_items['amount'] = (int) -$unique_data_as_items['amount'];
 			}
@@ -586,7 +548,7 @@ function cekmutasi_link($params)
 	// Get InvoiceData
 	try
 	{
-		$invoiceData = localAPI('GetInvoice', array('invoiceid' => $params['invoiceid']), $params['Local-Api-Admin-Username']);
+		$invoiceData = localAPI('GetInvoice', array('invoiceid' => $params['invoiceid']), $params['cm_local_api_admin_username']);
 	}
 	catch (Exception $ex)
 	{
@@ -600,37 +562,31 @@ function cekmutasi_link($params)
 
 	//---- Build Config For Lib_cekmutasi
 	$cekmutasi_configs = array();
-	if (strtolower($params['Environment']) === 'live')
-	{
-		$cekmutasi_configs['api_key'] = $params['cekmutasi_api_key_live'];
-		$cekmutasi_configs['api_secret'] = $params['cekmutasi_api_secret_live'];
-	}
-	else
-	{
-		$cekmutasi_configs['api_key'] = $params['cekmutasi_api_key_dev'];
-		$cekmutasi_configs['api_secret'] = $params['cekmutasi_api_secret_dev'];
-	}
+	$cekmutasi_configs['cm_api_key'] = $params['cm_api_key'];
+	$cekmutasi_configs['cm_api_signature'] = $params['cm_api_signature'];
+	$cekmutasi_configs['cm_change_day'] = (int) $params['cm_change_day'];
+	
+// 	$htmlPrint .= '<form method="post" action="' . $params['systemurl'] . '/modules/gateways/callback/cekmutasi.php?page=order">';
+// 	$htmlPrint .= '<input type="hidden" name="invoice_id" value="' . $params['invoiceid'] . '" />';
+//     $htmlPrint .= '<input type="submit" value="Konfirmasi Pembayaran" />';
+//     $htmlPrint .= '</form>';
+	
+// 	$htmlPrint .= "<div class='row'>";
+// 	$htmlPrint .= "<div class='col-md-12'>";
+// 	$htmlPrint .= $params['Description-Payment-Gateway'];
+// 	$htmlPrint .= "</div>";
+// 	$htmlPrint .= "</div>";
 
-	$cekmutasi_configs['change_day'] = (int) $params['change_day'];
-	
-	$htmlPrint .= '<form method="post" action="' . $params['systemurl'] . '/modules/gateways/callback/cekmutasi.php?page=order">';
-	$htmlPrint .= '<input type="hidden" name="invoice_id" value="' . $params['invoiceid'] . '" />';
-    $htmlPrint .= '<input type="submit" value="Konfirmasi Pembayaran" />';
-    $htmlPrint .= '</form>';
-	
-	$htmlPrint .= "<div class='row'>";
-	$htmlPrint .= "<div class='col-md-12'>";
-	$htmlPrint .= $params['Description-Payment-Gateway'];
-	$htmlPrint .= "</div>";
-	$htmlPrint .= "</div>";
+    $htmlPrint = str_replace("\r\n", "\n", $params['cm_description']);
+    $htmlPrint = str_replace("\n", "<br/>", $htmlPrint);
 
 	return $htmlPrint;
 }
 
-function cekmutasi_cekmutasi_calculate_unique($params)
+function cm_calculate_unique($params)
 {
 	$cekmutasi_unique = new cekmutasi_unique($params);
-	$insert_params = $cekmutasi_unique->cekmutasi_calculate_unique(CEKMUTASI_TABLE_TRANSACTION_UNIQUE, CEKMUTASI_TIMEZONE);
+	$insert_params = $cekmutasi_unique->cekmutasi_calculate_unique(CEKMUTASI_TABLE_TRANSACTION_UNIQUE, $params['cm_timezone']);
 	try
 	{
 		$new_unique_seq = insert_query(CEKMUTASI_TABLE_TRANSACTION_UNIQUE, $insert_params);
@@ -746,27 +702,3 @@ function cekmutasi_cancelSubscription($params)
         'rawdata' => $responseData,
     );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

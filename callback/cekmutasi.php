@@ -25,41 +25,33 @@ $gatewayModuleName = basename(__FILE__, '.php');
 
 // Fetch gateway configuration parameters.
 $gatewayParams = getGatewayVariables($gatewayModuleName);
-$PaymentCheck_Enabled = (isset($gatewayParams['PaymentCheck-Enabled']) ? $gatewayParams['PaymentCheck-Enabled'] : '');
+$PaymentCheck_Enabled = (isset($gatewayParams['cm_enable_payment_check']) ? $gatewayParams['cm_enable_payment_check'] : '');
 $PaymentCheck_Enabled = ((strtolower($PaymentCheck_Enabled) === strtolower('on')) ? TRUE : FALSE);
-$LocalApiAdminUsername = (isset($gatewayParams['Local-Api-Admin-Username']) ? $gatewayParams['Local-Api-Admin-Username'] : '');
+$LocalApiAdminUsername = (isset($gatewayParams['cm_local_api_admin_username']) ? $gatewayParams['cm_local_api_admin_username'] : '');
 $Log_Enabled = FALSE;
 
-if (isset($gatewayParams['Log-Enabled']))
+if (isset($gatewayParams['cm_enable_log']))
 {
-	$Log_Enabled = ((strtolower($gatewayParams['Log-Enabled']) == 'on') ? TRUE : FALSE);
+	$Log_Enabled = ((strtolower($gatewayParams['cm_enable_log']) == 'on') ? TRUE : FALSE);
 }
 
 // Require Configs of Cekmutasi
-require(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'cekmutasi' . DIRECTORY_SEPARATOR . 'cekmutasi-config.php');
+require(dirname(__DIR__) . DIRECTORY_SEPARATOR . $gatewayModuleName . DIRECTORY_SEPARATOR . 'cekmutasi-config.php');
 
 if (!isset($CekmutasiConfigs)) {
 	exit("No cekmutasi configs retrieved");
 }
 
 // Include Library Curl and Cekmutasi
-include_once(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'cekmutasi' . DIRECTORY_SEPARATOR . 'libs' . DIRECTORY_SEPARATOR . 'Lib_imzerscurl.php');
-include_once(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'cekmutasi' . DIRECTORY_SEPARATOR . 'libs' . DIRECTORY_SEPARATOR . 'Lib_cekmutasi.php');
+include_once(dirname(__DIR__) . DIRECTORY_SEPARATOR . $gatewayModuleName . DIRECTORY_SEPARATOR . 'libs' . DIRECTORY_SEPARATOR . 'Lib_imzerscurl.php');
+include_once(dirname(__DIR__) . DIRECTORY_SEPARATOR . $gatewayModuleName . DIRECTORY_SEPARATOR . 'libs' . DIRECTORY_SEPARATOR . 'Lib_cekmutasi.php');
 // Get Instance Initialized
 
 $curl = new Lib_imzerscurl();
 
 //------ Build Config For Lib_cekmutasi
-if (strtolower($gatewayParams['Environment']) === 'live')
-{
-	$CekmutasiConfigs['api_key'] = $gatewayParams['cekmutasi_api_key_live'];
-	$CekmutasiConfigs['api_secret'] = $gatewayParams['cekmutasi_api_secret_live'];
-}
-else
-{
-	$CekmutasiConfigs['api_key'] = $gatewayParams['cekmutasi_api_key_dev'];
-	$CekmutasiConfigs['api_secret'] = $gatewayParams['cekmutasi_api_secret_dev'];
-}
+$CekmutasiConfigs['cm_api_key'] = $gatewayParams['cm_api_key'];
+$CekmutasiConfigs['cm_api_signature'] = $gatewayParams['cm_api_signature'];
 
 $cekmutasi = new Lib_cekmutasi($CekmutasiConfigs);
 
@@ -75,7 +67,7 @@ if (isset($cekmutasi->cekmutasi_headers))
 }
 
 $CurrentDatezone = new DateTime();
-$CurrentDatezone->setTimezone(new DateTimeZone(CEKMUTASI_TIMEZONE));
+$CurrentDatezone->setTimezone(new DateTimeZone($gatewayParams['cm_timezone']));
 
 // Die if module is not active.
 if (!$gatewayParams['type']) {
@@ -108,7 +100,7 @@ if (isset($input_request['query_string']['page']))
 
 		// Cek if page = notify
 		$Datezone = new DateTime();
-		$Datezone->setTimezone(new DateTimeZone(CEKMUTASI_TIMEZONE));
+		$Datezone->setTimezone(new DateTimeZone($gatewayParams['cm_timezone']));
 		$Datetime_Range = array(
 			'current'		=> $Datezone->format('Y-m-d H:i:s'),
 		);
@@ -119,188 +111,182 @@ if (isset($input_request['query_string']['page']))
 
 			if( version_compare(PHP_VERSION, '5.6.0', '>=') )
 			{
-				if( !hash_equals($incomingSignature, $CekmutasiConfigs['api_secret']) ) {
-					exit("Invalid signature: " . $CekmutasiConfigs['api_secret'] . " vs " . $incomingSignature);
+				if( !hash_equals($incomingSignature, $CekmutasiConfigs['cm_api_signature']) ) {
+					logActivity(__FILE__.' ('.__LINE__.'): Invalid signature | '.$CekmutasiConfigs['cm_api_signature'] . ' vs ' . $incomingSignature);
+					exit("Invalid signature");
 				}
 			}
 			else
 			{
-				if( $incomingSignature !== $CekmutasiConfigs['api_secret'] ) {
-					exit("Invalid signature: " . $CekmutasiConfigs['api_secret'] . " vs " . $incomingSignature);
+				if( $incomingSignature !== $CekmutasiConfigs['cm_api_signature'] ) {
+					logActivity(__FILE__.' ('.__LINE__.'): Invalid signature | '.$CekmutasiConfigs['cm_api_signature'] . ' vs ' . $incomingSignature);
+					exit("Invalid signature");
 				}
 			}
-
-			$insert_ipn_params = array(
-				'payment_method'		=> $input_request['query_string']['page'],
-				'input_data'			=> json_encode($input_request['input_params'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT),
-				'input_datetime'		=> $Datetime_Range['current'],
-			);
 			
-			$new_ipn_seq = insert_query(CEKMUTASI_TABLE_TRANSACTION_IPN, $insert_ipn_params);
-			$sql_where = array(
-				'seq'		=> $new_ipn_seq,
-			);
-
-			try
-			{
-				$sql_result = select_query(CEKMUTASI_TABLE_TRANSACTION_IPN, '*', $sql_where);
-			}
-			catch (Exception $ex)
-			{
-				throw $ex;
-				return false;
-			}
-
-			$ipn_data = mysqli_fetch_object($sql_result);
+			if( $input_request['input_params']['body']['action'] == 'payment_report' )
+            {
+    			$insert_ipn_params = array(
+    				'payment_method'		=> $input_request['query_string']['page'],
+    				'input_data'			=> json_encode($input_request['input_params']['body']['content'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT),
+    				'input_datetime'		=> $Datetime_Range['current'],
+    			);
+    			
+    			$new_ipn_seq = insert_query(CEKMUTASI_TABLE_TRANSACTION_IPN, $insert_ipn_params);
+    			$sql_where = array(
+    				'seq'		=> $new_ipn_seq,
+    			);
+    
+    			try
+    			{
+    				$sql_result = select_query(CEKMUTASI_TABLE_TRANSACTION_IPN, '*', $sql_where);
+    			}
+    			catch (Exception $ex)
+    			{
+    				throw $ex;
+    				return false;
+    			}
+    			
+    			$ipn_data = $sql_result->fetchObject();
 			
-			if (isset($ipn_data->input_data))
-			{
-				try
-				{
-					$ipn_input_data = json_decode($ipn_data->input_data);
-				}
-				catch (Exception $ex)
-				{
-					exit("Cannot json decoded input IPN: {$ex->getMessage()}");
-				}
-
-				//=======================
-				// Chek if payment_report
-				
-				$mutasi_data = array();
-				if (isset($ipn_input_data->body->action) && isset($ipn_input_data->body->content->data))
-				{
-					$ipn_input_data->body->action = (is_string($ipn_input_data->body->action) ? strtolower($ipn_input_data->body->action) : '');
-
-					if ($ipn_input_data->body->action === strtolower('payment_report'))
+    			if (isset($ipn_data->input_data))
+    			{
+    				try
+    				{
+    					$ipn_input_data = json_decode($ipn_data->input_data);
+    				}
+    				catch (Exception $ex)
+    				{
+    					exit("Cannot json decoded input IPN: {$ex->getMessage()}");
+    				}
+    
+    				$mutasi_data = array();
+					if (is_array($ipn_input_data->data) && (count($ipn_input_data->data) > 0))
 					{
-						if (is_array($ipn_input_data->body->content->data) && (count($ipn_input_data->body->content->data) > 0))
+						foreach ($ipn_input_data->data as $content_data)
 						{
-							foreach ($ipn_input_data->body->content->data as $content_data)
+							if (isset($content_data->type) && isset($content_data->amount) && isset($content_data->description))
 							{
-								if (isset($content_data->type) && isset($content_data->amount) && isset($content_data->description))
+								if( strtolower($content_data->type) == 'credit' )
 								{
-									if( strtolower($content_data->type) === 'credit' )
-									{
-										$CekmutasiDatezone = new DateTime();
-										$CekmutasiDatezone->setTimestamp($content_data->unix_timestamp);
-										$CekmutasiDatezone->setTimezone(new DateTimeZone(CEKMUTASI_TIMEZONE));
+									$CekmutasiDatezone = new DateTime();
+									$CekmutasiDatezone->setTimestamp($content_data->unix_timestamp);
+									$CekmutasiDatezone->setTimezone(new DateTimeZone($gatewayParams['cm_timezone']));
 
-										$mutasi_data[] = array(
-											'payment_method'			=> $ipn_input_data->body->content->service_code,
-											'payment_amount'			=> sprintf('%.02f', $content_data->amount),
-											'payment_description'		=> sprintf("%s", $content_data->description),
-											'payment_datetime'			=> $CekmutasiDatezone->format('Y-m-d H:i:s'),
-											'payment_type'				=> sprintf("%s", $content_data->type),
-											'payment_identification'	=> sprintf("%s-%s", $ipn_input_data->body->content->account_number, $content_data->unix_timestamp),
-										);
-									}
+									$mutasi_data[] = array(
+										'payment_method'			=> $ipn_input_data->service_code,
+										'payment_amount'			=> sprintf('%.02f', $content_data->amount),
+										'payment_description'		=> sprintf("%s", $content_data->description),
+										'payment_datetime'			=> $CekmutasiDatezone->format('Y-m-d H:i:s'),
+										'payment_type'				=> sprintf("%s", $content_data->type),
+										'payment_identification'	=> sprintf("%s-%s", $ipn_input_data->account_number, $content_data->unix_timestamp),
+									);
 								}
 							}
 						}
 					}
-				}
-
-				//-----------------------------------------------
-				// Set payment expired datetime
-				# Default Unit: day
-				// Query select from mutasi data
-				//-----------------------------------------------
-				$Datetime_Range['payment_expired'] = '';
-				if (count($mutasi_data) > 0)
-				{
-					foreach ($mutasi_data as $mutasi)
-					{
-						$sql = sprintf("SELECT * FROM %s WHERE (paymentmethod = '%s' AND total = '%.02f' AND status IN('Created', 'Unprocess', 'Unpaid')) AND (DATE('%s') BETWEEN `date` AND DATE_ADD(`date`, INTERVAL %d DAY)) ORDER BY `date` DESC LIMIT 1",
-							'tblinvoices',
-							$gatewayParams['paymentmethod'],
-							$mutasi['payment_amount'],
-							$mutasi['payment_datetime'],
-							$gatewayParams['change_day']
-						);
-
-						try
-						{
-							$sql_query = full_query($sql);
-						}
-						catch (Exception $ex)
-						{
-							throw $ex;
-							return false;
-						}
-
-						$invoices_data = mysqli_fetch_object($sql_query);
-
-						if( isset($invoices_data->id) )
-						{
-							// Generate Invoice Transaction Data
-							$invoices_data->transaction_data = array(
-								'payment_method'					=> $mutasi['payment_method'],
-								'order_total'						=> $invoices_data->total,
-								'payment_insert'					=> $mutasi['payment_datetime'],
-								'payment_cekmutasi_durasi_unit'		=> $gatewayParams['unique_range_unit'],
-								'payment_cekmutasi_durasi_amount'	=> $gatewayParams['unique_range_amount'],
-								'order_status'						=> $invoices_data->status,
-								'payment_identification'			=> $mutasi['payment_identification'],
-							);
-
-							//========================
-							if ($Log_Enabled) {
-								logTransaction($gatewayParams['name'], $invoices_data->transaction_data, 'notify');
-							}
-
-							//========================
-							if ($PaymentCheck_Enabled !== FALSE)
-							{
-								try
-								{
-									$response_request[] = set_cekmutasi_payment_status($curl, $cekmutasi, $invoices_data->transaction_data);
-								}
-								catch (Exception $ex)
-								{
-									throw $ex;
-									return false;
-								}
-
-								if (count($response_request) > 0)
-								{
-									echo "SUCCESS [Check-API Enabled]";
-									print_r($response_request);
-								}
-							}
-							else
-							{
-								$invoiceId = checkCbInvoiceID($invoices_data->id, $gatewayParams['name']);
-								checkCbTransID($mutasi['payment_identification']);
-								// Set Payment Success
-								addInvoicePayment(
-									$invoiceId,
-									$mutasi['payment_identification'],
-									$mutasi['payment_amount'],
-									0,
-									$gatewayModuleName
-								);
-								echo "SUCCESS [Check-API Disabled]";
-							}
-						}
-					}
-				}
-				//-----------------------------------------------
-			}
-			else
-			{
-				exit("No input data from ipn logs db.");
-			}
+    
+    				//-----------------------------------------------
+    				// Set payment expired datetime
+    				# Default Unit: day
+    				// Query select from mutasi data
+    				//-----------------------------------------------
+    				$Datetime_Range['payment_expired'] = '';
+    				if (count($mutasi_data) > 0)
+    				{
+    					foreach ($mutasi_data as $mutasi)
+    					{
+    						$sql = sprintf("SELECT * FROM %s WHERE (paymentmethod = '%s' AND total = '%.02f' AND status IN('Created', 'Unprocess', 'Unpaid')) AND (DATE('%s') BETWEEN `date` AND DATE_ADD(`date`, INTERVAL %d DAY)) ORDER BY `date` DESC LIMIT 1",
+    							'tblinvoices',
+    							$gatewayParams['paymentmethod'],
+    							$mutasi['payment_amount'],
+    							$mutasi['payment_datetime'],
+    							$gatewayParams['cm_change_day']
+    						);
+    
+    						try
+    						{
+    							$sql_query = full_query($sql);
+    						}
+    						catch (Exception $ex)
+    						{
+    							throw $ex;
+    							return false;
+    						}
+    
+    						$invoices_data = $sql_query->fetchObject();
+    
+    						if( isset($invoices_data->id) )
+    						{
+    							// Generate Invoice Transaction Data
+    							$invoices_data->transaction_data = array(
+    								'payment_method'					=> $mutasi['payment_method'],
+    								'order_total'						=> $invoices_data->total,
+    								'payment_insert'					=> $mutasi['payment_datetime'],
+    								'payment_cekmutasi_durasi_unit'		=> $gatewayParams['cm_unique_range_unit'],
+    								'payment_cekmutasi_durasi_amount'	=> $gatewayParams['cm_unique_range_amount'],
+    								'order_status'						=> $invoices_data->status,
+    								'payment_identification'			=> $mutasi['payment_identification'],
+    							);
+    
+    							//========================
+    							if ($Log_Enabled) {
+    								logTransaction($gatewayParams['name'], $invoices_data->transaction_data, 'notify');
+    							}
+    
+    							//========================
+    							if ($PaymentCheck_Enabled !== FALSE)
+    							{
+    								try
+    								{
+    									$response_request[] = set_cekmutasi_payment_status($curl, $cekmutasi, $invoices_data->transaction_data);
+    								}
+    								catch (Exception $ex)
+    								{
+    									throw $ex;
+    									return false;
+    								}
+    
+    								if (count($response_request) > 0)
+    								{
+    									echo "SUCCESS [Check-API Enabled]";
+    									print_r($response_request);
+    								}
+    							}
+    							else
+    							{
+    								$invoiceId = checkCbInvoiceID($invoices_data->id, $gatewayParams['name']);
+    								checkCbTransID($mutasi['payment_identification']);
+    								// Set Payment Success
+    								addInvoicePayment(
+    									$invoiceId,
+    									$mutasi['payment_identification'],
+    									$mutasi['payment_amount'],
+    									0,
+    									$gatewayModuleName
+    								);
+    								echo "SUCCESS [Check-API Disabled]";
+    							}
+    						}
+    					}
+    				}
+    				//-----------------------------------------------
+    			}
+    			else
+    			{
+    				exit("No input data from ipn logs db.");
+    			}
+    		}
 		}
-		elseif(strtolower($input_request['query_string']['page']) === 'order')
+		elseif(strtolower($input_request['query_string']['page']) == 'order')
 		{
 			$invoice_id = 0;
-			$redirect_url = $gatewayParams['systemurl'] . 'viewinvoice.php?id=';
+			$redirect_url = rtrim($gatewayParams['systemurl'], '/') . '/viewinvoice.php?id=';
 			if (isset($input_request['input_params']['body']['invoice_id']))
 			{
 				if (is_numeric($input_request['input_params']['body']['invoice_id']))
 				{
-					$invoice_id = (int)$input_request['input_params']['body']['invoice_id'];
+					$invoice_id = (int) $input_request['input_params']['body']['invoice_id'];
 					$redirect_url .= sprintf("%d", $input_request['input_params']['body']['invoice_id']);
 				}
 				else
@@ -312,7 +298,7 @@ if (isset($input_request['query_string']['page']))
 			// Get InvoiceData
 			try
 			{
-				$invoiceData = localAPI('GetInvoice', array('invoiceid' => $invoice_id), $gatewayParams['Local-Api-Admin-Username']);
+				$invoiceData = localAPI('GetInvoice', array('invoiceid' => $invoice_id), $gatewayParams['cm_local_api_admin_username']);
 			}
 			catch (Exception $ex)
 			{
@@ -325,14 +311,14 @@ if (isset($input_request['query_string']['page']))
 			}
 
 			// Get Data From Cekmutasi.co.id
-			if (strtolower($invoiceData['result']) === strtolower('success'))
+			if (strtolower($invoiceData['result']) === 'success')
 			{
 				$order_invoices_data = array(
-					'payment_method'						=> (isset($input_request['input_params']['body']['payment_method']) ? (is_string($input_request['input_params']['body']['payment_method']) ? strtolower($input_request['input_params']['body']['payment_method']) : 'all') : 'all'),
+					'payment_method'					=> (isset($input_request['input_params']['body']['payment_method']) ? (is_string($input_request['input_params']['body']['payment_method']) ? strtolower($input_request['input_params']['body']['payment_method']) : 'all') : 'all'),
 					'order_total'						=> (isset($invoiceData['total']) ? $invoiceData['total'] : 0),
 					'payment_insert'					=> (isset($invoiceData['date']) ? $invoiceData['date'] : $CurrentDatezone->format('Y-m-d H:i:s')),
-					'payment_cekmutasi_durasi_unit'		=> $gatewayParams['unique_range_unit'],
-					'payment_cekmutasi_durasi_amount'	=> $gatewayParams['unique_range_amount'],
+					'payment_cekmutasi_durasi_unit'		=> $gatewayParams['cm_unique_range_unit'],
+					'payment_cekmutasi_durasi_amount'	=> $gatewayParams['cm_unique_range_amount'],
 					'order_status'						=> (isset($invoiceData['status']) ? $invoiceData['status'] : ''),
 					'payment_identification'			=> '',
 				);
@@ -343,7 +329,7 @@ if (isset($input_request['query_string']['page']))
 				}
 				catch (Exception $ex)
 				{
-					exit("Cannot get payment-status : {$ex->getMessage()}.");
+				    logActivity(__FILE__.' ('.__LINE__.'): '.$ex->getMessage());
 				}
 
 				if ($payment_status != FALSE)
@@ -357,17 +343,10 @@ if (isset($input_request['query_string']['page']))
 						$payment_status['cekmutasi']['tmp_data']->error_message = sprintf("%s", $payment_status['cekmutasi']['tmp_data']->error_message);
 						if (strlen($payment_status['cekmutasi']['tmp_data']->error_message) > 0)
 						{
-							?>
-							<script type="text/javascript">
-								alert('<?= $payment_status['cekmutasi']['tmp_data']->error_message;?>');
-								window.location.href = '<?=$redirect_url;?>';
-							</script>
-							<?php
-							exit;
+						    logActivity(__FILE__.' ('.__LINE__.'): '.$payment_status['cekmutasi']['tmp_data']->error_message);
 						}
 					}
 				}
-				
 			}
 			// Redirecting page to invoice page
 			header("Location: {$redirect_url}");
@@ -402,7 +381,7 @@ function set_cekmutasi_payment_status($curl, $cekmutasi, $order_invoices_data, $
 
 	// Get Transaction Data
 	$Datezone = new DateTime();
-	$Datezone->setTimezone(new DateTimeZone(CEKMUTASI_TIMEZONE));
+	$Datezone->setTimezone(new DateTimeZone($gatewayParams['cm_timezone']));
 	$Datetime_Range = array(
 		'current'		=> $Datezone->format('Y-m-d H:i:s'),
 	);
@@ -450,7 +429,7 @@ function set_cekmutasi_payment_status($curl, $cekmutasi, $order_invoices_data, $
 							{
 								$CekmutasiDatezone = new DateTime();
 								$CekmutasiDatezone->setTimestamp($response->unix_timestamp);
-								$CekmutasiDatezone->setTimezone(new DateTimeZone(CEKMUTASI_TIMEZONE));
+								$CekmutasiDatezone->setTimezone(new DateTimeZone($gatewayParams['cm_timezone']));
 								$collect['mutasi_data'][] = array(
 									'payment_method'			=> (isset($response->service_code) ? $response->service_code : ''),
 									'payment_amount'			=> sprintf('%.02f', $response->amount),
@@ -464,6 +443,11 @@ function set_cekmutasi_payment_status($curl, $cekmutasi, $order_invoices_data, $
 						}
 					}
 				}
+			}
+			else
+			{
+				logActivity(__FILE__.' ('.__LINE__.'): '.$collect['cekmutasi']['tmp_data']->error_message);
+				throw new \Exception($collect['cekmutasi']['tmp_data']->error_message);
 			}
 			
 			//-------------------------------------------
@@ -490,7 +474,7 @@ function set_cekmutasi_payment_status($curl, $cekmutasi, $order_invoices_data, $
 						return false;
 					}
 
-					$invoices_data = mysqli_fetch_object($sql_query);
+					$invoices_data = $sql_query->fetchObject();
 
 					if (isset($invoices_data->id))
 					{

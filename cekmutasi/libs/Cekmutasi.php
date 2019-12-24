@@ -1,14 +1,18 @@
 <?php
 
+namespace Cekmutasi\Libs;
+
+use DateTime, DateInterval, DateTimeZone;
+
 if( !defined('WHMCS') ) {
 	exit('No direct script access allowed');
 }
 
-class Lib_cekmutasi
+class Cekmutasi
 {
 	protected $api_endpoint = 'https://api.cekmutasi.co.id/v1';
 	protected $api_key = null;
-	protected $api_secret = null;
+	protected $api_signature = null;
 	public $base_config;
 	public $cekmutasi_headers = array();
 
@@ -18,8 +22,8 @@ class Lib_cekmutasi
 			$this->api_key = $config['api_key'];
 		}
 
-		if (isset($config['api_secret'])) {
-			$this->api_secret = $config['api_secret'];
+		if (isset($config['api_signature'])) {
+			$this->api_signature = $config['api_signature'];
 		}
 
 		$this->base_config = $config;
@@ -115,7 +119,7 @@ class Lib_cekmutasi
 				break;
 
 			case 'gopay':
-				$url = sprintf("%s%s", $this->api_endpoint, '/ovo/search');
+				$url = sprintf("%s%s", $this->api_endpoint, '/gopay/search');
 				break;
 
 			default:
