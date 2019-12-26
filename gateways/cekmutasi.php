@@ -219,7 +219,7 @@ function cekmutasi_MetaData()
 include_once dirname(__FILE__) . DIRECTORY_SEPARATOR . 'cekmutasi' . DIRECTORY_SEPARATOR . 'libs' . DIRECTORY_SEPARATOR . 'Admin.php';
 
 if (!file_exists($configfile)) {
-	Exit("Required configs file does not exists.");
+	exit("Required configs file does not exists.");
 }
 
 $CekmutasiAdmin = new Cekmutasi\Libs\Admin($CekmutasiConfigs);
@@ -406,62 +406,125 @@ Bank BRI 123456789 a/n Penerima',
 
     );
 
-	//====================================================
-	// Query to create table
-	//====================================================
-	$sql_table_ipn = sprintf("CREATE TABLE IF NOT EXISTS `%s` (
-		`seq` int(11) NOT NULL AUTO_INCREMENT,
-		`payment_method` varchar(50) NOT NULL,
-		`input_data` text NOT NULL,
-		`input_datetime` datetime NOT NULL,
-		PRIMARY KEY (`seq`),
-		KEY `payment_method` (`payment_method`)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
-		CEKMUTASI_TABLE_TRANSACTION_IPN
-	);
+	$tableExists = false;
 
 	try
 	{
-		$sql_query = full_query($sql_table_ipn);
+	    // check if table exists
+		$check = sprintf("DESCRIBE `%s`", CEKMUTASI_TABLE_TRANSACTION_IPN);
+		$check = full_query($check);
+		
+		if( $check !== false ) {
+		    $tableExists = true;
+		}
 	}
 	catch (Exception $ex)
 	{
-		throw $ex;
-		exit("Cannot query for table ipn");
+        exit(__FILE__." (".$ex->getLine()."): ".$ex->getMessage());
 	}
 
-	$sql_table_unique = sprintf("CREATE TABLE IF NOT EXISTS `%s` (
-		`seq` int(11) NOT NULL AUTO_INCREMENT,
-		`trans_seq` int(11) NOT NULL,
-		`trans_user` int(11) NOT NULL DEFAULT '0',
-		`trans_invoiceid` int(11) NOT NULL DEFAULT '0',
-		`unique_payment_gateway` varchar(64) NOT NULL DEFAULT 'cekmutasi',
-		`unique_unit_name` enum('day','hour','minute') NOT NULL DEFAULT 'day',
-		`unique_unit_amount` smallint(4) NOT NULL,
-		`unique_label` tinytext NOT NULL,
-		`unique_amount` smallint(4) NOT NULL,
-		`unique_date` date DEFAULT NULL,
-		`unique_datetime` datetime DEFAULT NULL,
-		PRIMARY KEY (`seq`),
-		KEY `trans_seq` (`trans_seq`),
-		KEY `trans_seq_trans_user` (`trans_seq`,`trans_user`),
-		KEY `unique_datetime` (`unique_datetime`)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
-		CEKMUTASI_TABLE_TRANSACTION_UNIQUE
-	);
+	if( $tableExists === false )
+	{
+		try
+		{
+		    // create IPN table
+		    $createTableIPN = sprintf("CREATE TABLE `%s` (
+    			`seq` int(11) NOT NULL AUTO_INCREMENT,
+    			`payment_method` varchar(50) NOT NULL,
+    			`input_data` text NOT NULL,
+    			`input_datetime` datetime NOT NULL,
+    			PRIMARY KEY (`seq`),
+    			KEY `payment_method` (`payment_method`)
+    			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
+    			CEKMUTASI_TABLE_TRANSACTION_IPN
+    		);
+		
+			if( full_query($createTableIPN) === false ) {
+			    throw new Exception("Cannot create table `".CEKMUTASI_TABLE_TRANSACTION_IPN."`");
+			}
+		}
+		catch (Exception $ex)
+		{
+			exit(__FILE__." (".$ex->getLine()."): ".$ex->getMessage());
+		}
+	}
+	else
+	{
+		try
+		{
+			// check if column `payment_bank` not exists
+			if( full_query(sprintf("SELECT `payment_bank` FROM `%s`", CEKMUTASI_TABLE_TRANSACTION_IPN)) !== false )
+			{
+    			//====================================================
+    			// Modify table for v1.0.0 -> v2.0.0
+    			//====================================================
+    			$renameColumn = sprintf("ALTER TABLE `%s` CHANGE `payment_bank` `payment_method` varchar(50) NOT NULL;", CEKMUTASI_TABLE_TRANSACTION_IPN);
+    			if( full_query($renameColumn) === false ) {
+    			    throw new Exception("Failed to rename column");
+    			}
+    			
+    			$disableForeignKeyCheck = "SET FOREIGN_KEY_CHECKS = 0;";
+    			if( full_query($disableForeignKeyCheck) === false ) {
+    			    throw new Exception("Failed to disable Foreign Key check");
+    			}
+    			
+    			$dropIndex = sprintf("ALTER TABLE `%s` DROP INDEX `payment_bank`;", CEKMUTASI_TABLE_TRANSACTION_IPN);
+    			if( full_query($dropIndex) === false ) {
+    			    throw new Exception("Failed to drop index");
+    			}
+    			
+    			$createIndex = sprintf("ALTER TABLE `%s` ADD INDEX `payment_method` (`payment_method`);", CEKMUTASI_TABLE_TRANSACTION_IPN);
+    			if( full_query($createIndex) === false ) {
+    			    throw new Exception("Failed to create new index");
+    			}
+    			
+    			$enableForeignKeyCheck = "SET FOREIGN_KEY_CHECKS = 1;";
+    			if( full_query($enableForeignKeyCheck) === false ) {
+    			    throw new Exception("Failed to enable Foreign Key check");
+    			}
+			}
+		}
+		catch (Exception $ex)
+		{
+			exit(__FILE__." (".$ex->getLine()."): ".$ex->getMessage());
+		}
+	}
 
 	try
 	{
-		$sql_query = full_query($sql_table_unique);
+	    if( full_query(sprintf("DESCRIBE `%s`", CEKMUTASI_TABLE_TRANSACTION_UNIQUE)) === false )
+	    {
+	        // create unique table
+    	    $sql_table_unique = sprintf("CREATE TABLE IF NOT EXISTS `%s` (
+        		`seq` int(11) NOT NULL AUTO_INCREMENT,
+        		`trans_seq` int(11) NOT NULL,
+        		`trans_user` int(11) NOT NULL DEFAULT '0',
+        		`trans_invoiceid` int(11) NOT NULL DEFAULT '0',
+        		`unique_payment_gateway` varchar(64) NOT NULL DEFAULT 'cekmutasi',
+        		`unique_unit_name` enum('day','hour','minute') NOT NULL DEFAULT 'day',
+        		`unique_unit_amount` smallint(4) NOT NULL,
+        		`unique_label` tinytext NOT NULL,
+        		`unique_amount` smallint(4) NOT NULL,
+        		`unique_date` date DEFAULT NULL,
+        		`unique_datetime` datetime DEFAULT NULL,
+        		PRIMARY KEY (`seq`),
+        		KEY `trans_seq` (`trans_seq`),
+        		KEY `trans_seq_trans_user` (`trans_seq`,`trans_user`),
+        		KEY `unique_datetime` (`unique_datetime`)
+        		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
+        		CEKMUTASI_TABLE_TRANSACTION_UNIQUE
+        	);
+    	
+    		if( full_query($sql_table_unique) === false ) {
+    		    throw new Exception("Cannot create table `".CEKMUTASI_TABLE_TRANSACTION_UNIQUE."`");
+    		}
+	    }
 	}
 	catch (Exception $ex)
 	{
-		throw $ex;
-		exit("Cannot query for table unique");
+		exit(__FILE__." (".$ex->getLine()."): ".$ex->getMessage());
 	}
 
-	//====================================================
-	# return configs
 	return $configs;
 }
 

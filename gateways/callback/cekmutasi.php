@@ -446,7 +446,7 @@ function set_cekmutasi_payment_status($curl, $cekmutasi, $order_invoices_data, $
 			else
 			{
 				logActivity(__FILE__.' ('.__LINE__.'): '.$collect['cekmutasi']['tmp_data']->error_message);
-				throw new \Exception($collect['cekmutasi']['tmp_data']->error_message);
+				exit("Internal service error. Please check system log for more information");
 			}
 			
 			//-------------------------------------------
