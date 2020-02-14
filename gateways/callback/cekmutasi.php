@@ -8,8 +8,8 @@
  * This Module Information:
  --------------------------
  https://cekmutasi.co.id
- Version: 1.0
- Released: 2018-07-01
+ Version: 2.0.2
+ Released: 2020-02-14
  --------------------------
  *
  * For more information, about this modules payment please kindly visit our website at cekmutasi.co.id
@@ -242,7 +242,7 @@ if (isset($input_request['query_string']['page']))
     								}
     								catch (Exception $ex)
     								{
-    									throw $ex;
+    									logActivity(__FILE__.' ('.__LINE__.'): '.$ex->getMessage());
     									return false;
     								}
     

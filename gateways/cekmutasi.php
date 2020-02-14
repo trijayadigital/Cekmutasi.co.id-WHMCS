@@ -9,8 +9,8 @@
  * This Module Information:
  --------------------------
  https://cekmutasi.co.id
- Version: 1.0
- Released: 2018-07-01
+ Version: 2.0.2
+ Released: 2020-02-14
  --------------------------
  *
  * For more information, about this modules payment please kindly visit our website at cekmutasi.co.id
@@ -628,17 +628,6 @@ function cekmutasi_link($params)
 	$cekmutasi_configs['cm_api_key'] = $params['cm_api_key'];
 	$cekmutasi_configs['cm_api_signature'] = $params['cm_api_signature'];
 	$cekmutasi_configs['cm_change_day'] = (int) $params['cm_change_day'];
-	
-// 	$htmlPrint .= '<form method="post" action="' . $params['systemurl'] . '/modules/gateways/callback/cekmutasi.php?page=order">';
-// 	$htmlPrint .= '<input type="hidden" name="invoice_id" value="' . $params['invoiceid'] . '" />';
-//     $htmlPrint .= '<input type="submit" value="Konfirmasi Pembayaran" />';
-//     $htmlPrint .= '</form>';
-	
-// 	$htmlPrint .= "<div class='row'>";
-// 	$htmlPrint .= "<div class='col-md-12'>";
-// 	$htmlPrint .= $params['Description-Payment-Gateway'];
-// 	$htmlPrint .= "</div>";
-// 	$htmlPrint .= "</div>";
 
     $htmlPrint = str_replace("\r\n", "\n", $params['cm_description']);
     $htmlPrint = str_replace("\n", "<br/>", $htmlPrint);

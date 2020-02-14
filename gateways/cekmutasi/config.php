@@ -1,6 +1,6 @@
 <?php
 
-defined('CEKMUTASI_VERSION') OR define('CEKMUTASI_VERSION', '2.0.1');
+defined('CEKMUTASI_VERSION') OR define('CEKMUTASI_VERSION', '2.0.2');
 defined('CEKMUTASI_TABLE_TRANSACTION_IPN') OR define('CEKMUTASI_TABLE_TRANSACTION_IPN', 'cekmutasi_transactions_ipn');
 defined('CEKMUTASI_TABLE_TRANSACTION_UNIQUE') OR define('CEKMUTASI_TABLE_TRANSACTION_UNIQUE', 'cekmutasi_transactions_unique');
 
